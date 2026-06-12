@@ -61,8 +61,8 @@ Returns the modified string suitable for `read'."
           (let ((start (+ i 2)))
             (let ((end (stpl--find-matching-delimiter expr-str start "{%" "%}")))
               (if (not end)
-                  (error "Unmatched {% in expression: %s" expr-str)
-                (let* ((inner (substring expr-str start (- end 2))) ; remove trailing "%}"
+                  (error "Unmatched {%% in expression: %s" expr-str)
+                (let* ((inner (substring expr-str start (- end 2)))
                        (rendered (stpl-render-with-env inner env))
                        (quoted (prin1-to-string rendered)))
                   (setq result (concat result quoted)
@@ -72,18 +72,15 @@ Returns the modified string suitable for `read'."
     result))
 
 (defun stpl--parse-expression (str)
-  "Parse STR as a Lisp expression, adding parentheses if needed.
-If the result is a single-element list (e.g., (name)), return its element.
-Otherwise return the form as is."
+  "Parse STR as a Lisp expression.
+STR must be a single valid Emacs Lisp form (e.g., a symbol, number, string,
+or a list like (+ 1 2)).  If STR is empty or only whitespace, return nil."
   (if (string-match-p "\\`\\s-*\\'" str)
       nil
-    (let* ((wrapped (concat "(" str ")"))
-           (form (car (read-from-string wrapped))))
-      (if (and (listp form) (= (length form) 1) (not (listp (car form))))
-          (car form)
-        form))))
+    (let ((form (read-from-string str)))
+      ;; read-from-string returns (EXPRESSION . FINAL-POSITION)
+      (car form))))
 
-;;;###autoload
 (defun stpl-render-with-env (str env)
   "Render template string STR with variable environment ENV.
 ENV is an alist of (SYMBOL . VALUE) pairs.  Inside {{ ... }} expressions,
@@ -105,7 +102,7 @@ Arbitrary nesting is allowed."
         (let ((start (+ i 2)))
           (let ((end (stpl--find-matching-delimiter str start "{{" "}}")))
             (if (not end)
-                (error "Unmatched {{ in template: %s" str)
+                (error "Unmatched {{ in template: %s" str)  ; 修正警告：两个 {
               (let* ((inner (substring str start (- end 2))) ; remove trailing "}}"
                      (inner-processed (stpl--replace-percent-braces-in-expr inner env))
                      (expr-result
@@ -126,7 +123,7 @@ Arbitrary nesting is allowed."
         (let ((start (+ i 2)))
           (let ((end (stpl--find-matching-delimiter str start "{%" "%}")))
             (if (not end)
-                (error "Unmatched {% in template: %s" str)
+                (error "Unmatched {%% in template: %s" str)  ; 修正警告：两个 %
               (let* ((inner (substring str start (- end 2)))
                      (rendered (stpl-render-with-env inner env)))
                 (setq result (concat result rendered)
@@ -136,6 +133,7 @@ Arbitrary nesting is allowed."
         (setq result (concat result (substring str i (1+ i)))
               i (1+ i)))))
     result))
+
 
 ;;;###autoload
 (defun stpl-render (str)
